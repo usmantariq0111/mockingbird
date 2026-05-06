@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mockingbird — AI Interview Practice
 
-## Getting Started
+A web app that runs realistic mock interviews powered by an LLM. You give it your
+resume + job description, pick the type (behavioral / technical / system design / coding)
+and seniority, and it drills you with questions, scores each answer, and produces a final
+report.
 
-First, run the development server:
+This is **Phase 1 + 2** of a larger plan — the text-only Q&A loop. Voice (mic + TTS) lands
+in Phase 3.
+
+## What's in here
+
+- Next.js 15 (App Router, Turbopack) + React 19 + Tailwind v4
+- OpenAI Chat Completions with structured outputs (JSON Schema) for reliable parsing
+- In-memory session store (single user, resets on server restart — fine for local use)
+- PDF/TXT resume upload via `pdf-parse`
+
+## Quick start
 
 ```bash
+cp .env.example .env.local
+# edit .env.local and paste your OpenAI key
+
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Required env vars
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Var | Required | Default |
+|---|---|---|
+| `OPENAI_API_KEY` | yes | — |
+| `OPENAI_MODEL` | no | `gpt-4o-mini` |
 
-## Learn More
+Get a key at <https://platform.openai.com/api-keys>. The default model is intentionally
+cheap (`gpt-4o-mini`) — a 5-question session usually costs well under $0.05.
 
-To learn more about Next.js, take a look at the following resources:
+## How it works
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```text
+                ┌──────────────┐
+   /setup ─────►│ POST start   │── generateNextQuestion ──► OpenAI
+                └──────┬───────┘
+                       ▼
+                  sessionId
+                       │
+                       ▼
+            /interview/[id]
+                       │
+        type answer ──►│
+                       ▼
+                ┌──────────────┐
+                │ POST answer  │── evaluateAnswer ────────► OpenAI
+                │              │── generateNextQuestion ──► OpenAI
+                └──────┬───────┘
+                       ▼
+        feedback + next question (or final report)
+                       │
+                       ▼
+                /report/[id]
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Files of interest
 
-## Deploy on Vercel
+- `src/lib/llm.ts` — all OpenAI calls + JSON-Schema structured outputs. Three functions:
+  `generateNextQuestion`, `evaluateAnswer`, `generateFinalReport`.
+- `src/lib/store.ts` — in-memory session store (uses `globalThis` so it survives Next.js
+  HMR in dev).
+- `src/lib/types.ts` — shared types: `Session`, `Turn`, `Feedback`, `FinalReport`.
+- `src/app/api/interview/*` — the three API routes (start, get, answer).
+- `src/app/setup/page.tsx` — config form + resume upload.
+- `src/app/interview/[id]/page.tsx` — the live Q&A loop.
+- `src/app/report/[id]/page.tsx` — end-of-session report with per-question detail.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## What's NOT here yet (next phases)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Phase 3 — Voice:** real-time STT (Deepgram or Whisper) + TTS for the interviewer.
+- **Phase 4 — Persistence:** Supabase for accounts + session history (right now sessions
+  live in memory and disappear when the server restarts).
+- **Phase 5 — Polish:** charts (filler word trend, score over time), PDF export, model
+  switcher, prompt-tuning UI.
+
+## Why this exists
+
+This tool is for practicing **before** an interview, not assistance **during** one.
+Faking a live interview hurts the candidate (job mismatch), the company (bad hire), and
+the industry (more invasive proctoring for everyone). Practice hard, then go in honest.
+
+## License
+
+MIT.
