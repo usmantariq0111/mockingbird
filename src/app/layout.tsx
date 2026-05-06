@@ -40,7 +40,10 @@ export default function RootLayout({
             </Link>
             <nav className="flex items-center gap-5 text-sm text-muted-foreground">
               <Link href="/setup" className="hover:text-foreground">
-                Start a session
+                New session
+              </Link>
+              <Link href="/sessions" className="hover:text-foreground">
+                History
               </Link>
               <a
                 href="https://platform.openai.com/api-keys"

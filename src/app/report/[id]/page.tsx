@@ -123,7 +123,7 @@ export default function ReportPage({
         ))}
       </div>
 
-      <div className="mt-12 flex gap-3">
+      <div className="mt-12 flex flex-wrap gap-3 print:hidden">
         <Link
           href="/setup"
           className="rounded-md bg-accent px-5 py-3 text-sm font-medium text-accent-foreground transition hover:opacity-90"
@@ -131,11 +131,17 @@ export default function ReportPage({
           Run another session
         </Link>
         <Link
-          href="/"
+          href="/sessions"
           className="rounded-md border border-border px-5 py-3 text-sm transition hover:bg-muted"
         >
-          Home
+          All sessions
         </Link>
+        <button
+          onClick={() => window.print()}
+          className="rounded-md border border-border px-5 py-3 text-sm transition hover:bg-muted"
+        >
+          Print / Save as PDF
+        </button>
       </div>
     </div>
   );

@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# local session store (file-backed JSON)
+/.data/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

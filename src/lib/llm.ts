@@ -198,6 +198,95 @@ ${answer}
   return FeedbackSchema.parse(JSON.parse(raw));
 }
 
+/**
+ * Streaming variant of evaluateAnswer. Yields raw JSON deltas as they arrive
+ * from OpenAI. The caller is responsible for parsing the assembled buffer
+ * (use parsePartialJson for live updates, FeedbackSchema.parse on the final).
+ */
+export async function* evaluateAnswerStream(
+  config: InterviewConfig,
+  question: string,
+  answer: string,
+): AsyncGenerator<string> {
+  const isBehavioral = config.type === "behavioral";
+
+  const schemaProperties: Record<string, unknown> = {
+    score: { type: "number", minimum: 0, maximum: 10 },
+    strengths: { type: "array", items: { type: "string" }, maxItems: 5 },
+    improvements: { type: "array", items: { type: "string" }, maxItems: 5 },
+    fillerWordCount: { type: "integer", minimum: 0 },
+    summary: { type: "string" },
+  };
+  const required = ["score", "strengths", "improvements", "fillerWordCount", "summary"];
+
+  if (isBehavioral) {
+    schemaProperties.starCoverage = {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        situation: { type: "boolean" },
+        task: { type: "boolean" },
+        action: { type: "boolean" },
+        result: { type: "boolean" },
+      },
+      required: ["situation", "task", "action", "result"],
+    };
+    required.push("starCoverage");
+  }
+
+  const stream = await client().chat.completions.create({
+    model: MODEL,
+    temperature: 0.3,
+    stream: true,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "answer_feedback",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: schemaProperties,
+          required,
+        },
+      },
+    },
+    messages: [
+      {
+        role: "system",
+        content: `You are a tough but fair interview coach evaluating an answer.
+Be specific, cite concrete things the candidate said, and give actionable feedback.
+Score 0-10 where 5 is "average hire-bar answer", 8+ is "strong hire", 3- is "would not pass".
+${isBehavioral ? "Evaluate STAR coverage (Situation, Task, Action, Result)." : ""}
+Count obvious filler words: "um", "uh", "like", "you know", "basically", "literally", "sort of".
+Keep "summary" to 1-2 sentences. Strengths/improvements: 1-3 bullets each, each 1 sentence max.`,
+      },
+      {
+        role: "user",
+        content: `Interview type: ${config.type}
+Role: ${config.role}
+Difficulty: ${config.difficulty}
+
+Question: ${question}
+
+Candidate's answer:
+"""
+${answer}
+"""`,
+      },
+    ],
+  });
+
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content || "";
+    if (delta) yield delta;
+  }
+}
+
+export function parseFeedback(raw: string): Feedback {
+  return FeedbackSchema.parse(JSON.parse(raw));
+}
+
 export async function generateFinalReport(
   config: InterviewConfig,
   turns: Turn[],

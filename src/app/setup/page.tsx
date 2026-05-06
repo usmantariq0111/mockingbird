@@ -34,6 +34,8 @@ export default function SetupPage() {
     }
   }
 
+  const [voiceMode, setVoiceMode] = useState(false);
+
   async function start() {
     setError(null);
     setSubmitting(true);
@@ -53,7 +55,8 @@ export default function SetupPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to start");
-      router.push(`/interview/${json.sessionId}`);
+      const url = voiceMode ? `/interview/${json.sessionId}?voice=1` : `/interview/${json.sessionId}`;
+      router.push(url);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start");
       setSubmitting(false);
@@ -181,6 +184,23 @@ export default function SetupPage() {
             rows={6}
             className={inputCls + " min-h-[120px] font-mono text-xs"}
           />
+        </Field>
+
+        <Field
+          label="Voice mode"
+          hint="Hands-free — interviewer speaks the question aloud, you answer out loud, transcribed live. Best in Chrome or Edge."
+        >
+          <label className="flex cursor-pointer items-center gap-3 rounded-md border border-border bg-muted/40 p-3 hover:bg-muted/60">
+            <input
+              type="checkbox"
+              checked={voiceMode}
+              onChange={(e) => setVoiceMode(e.target.checked)}
+              className="h-4 w-4 accent-[var(--accent)]"
+            />
+            <span className="text-sm">
+              {voiceMode ? "Voice mode on — hands-free interview" : "Voice mode off — type your answers"}
+            </span>
+          </label>
         </Field>
 
         {error && (
